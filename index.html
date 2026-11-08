@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>¡Feliz Cumpleaños, amor mío! 🎉</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #fce4ec 0%, #f3e5f5 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 30px 15px;
+      color: #4a4a4a;
+      text-align: center;
+    }
+
+    header {
+      width: 100%;
+      max-width: 600px;
+      margin-bottom: 30px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      color: #d81b60;
+      font-size: clamp(1.8rem, 6vw, 2.5rem);
+      margin-bottom: 10px;
+      word-break: break-word;
+    }
+
+    p.subtitulo {
+      font-size: clamp(0.95rem, 3.5vw, 1.1rem);
+      color: #6a1b9a;
+      padding: 0 10px;
+    }
+
+    /* ---------- Tarjetas cerradas (mesa) ---------- */
+    .grid-container {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 26px 20px;
+      width: 100%;
+      max-width: 640px;
+      justify-items: center;
+    }
+
+    .mini {
+      position: relative;
+      width: 100%;
+      max-width: 190px;
+      aspect-ratio: 1 / 1.4;
+      border: none;
+      cursor: pointer;
+      border-radius: 6px 14px 14px 6px;
+      transition: transform .25s ease, box-shadow .25s ease;
+      transform: rotate(var(--tilt, 0deg));
+      box-shadow: 0 6px 14px rgba(120, 30, 90, .18);
+      padding: 0;
+      background: none;
+      font-family: inherit;
+    }
+    .mini:nth-child(odd)  { --tilt: -1.5deg; }
+    .mini:nth-child(even) { --tilt: 1.5deg; }
+    .mini:hover, .mini:focus-visible {
+      transform: translateY(-6px) rotate(0deg);
+      box-shadow: 0 14px 24px rgba(120, 30, 90, .25);
+      outline: none;
+    }
+    .mini.opened .cover-art::after {
+      content: "✓ leída";
+      position: absolute;
+      bottom: 10px; left: 0; right: 0;
+      font-size: .75rem;
+      color: #880e4f;
+      opacity: .75;
+    }
+    .mini.opened .hint-text { visibility: hidden; }
+
+    /* Diseño de portada (usado en miniaturas y en la tarjeta grande) */
+    .cover-art {
+      position: absolute;
+      inset: 0;
+      border-radius: 6px 14px 14px 6px;
+      background:
+        radial-gradient(circle at 20% 15%, rgba(255,255,255,.7), transparent 45%),
+        linear-gradient(135deg, #ffffff 0%, #f8bbd0 100%);
+      border: 2px solid #f48fb1;
+      color: #880e4f;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      overflow: hidden;
+    }
+    .cover-art::before {           /* marco interior */
+      content: "";
+      position: absolute;
+      inset: 8px;
+      border: 1.5px dashed rgba(216, 27, 96, .45);
+      border-radius: 4px 10px 10px 4px;
+      pointer-events: none;
+    }
+    .cover-art .ico { font-size: clamp(2rem, 9vw, 3rem); line-height: 1; }
+    .cover-art .num { font-size: 1.6rem; font-weight: bold; }
+    .cover-art .hint-text { font-size: .8rem; opacity: .8; }
+    .spine-shade {                 /* sombra del lomo */
+      position: absolute; inset: 0 auto 0 0; width: 14px;
+      background: linear-gradient(90deg, rgba(0,0,0,.16), transparent);
+      border-radius: 6px 0 0 6px;
+      pointer-events: none;
+    }
+
+    /* ---------- Escenario con la tarjeta grande ---------- */
+    #overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: rgba(74, 20, 70, .55);
+      backdrop-filter: blur(4px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .35s ease;
+    }
+    #overlay.show { opacity: 1; pointer-events: auto; }
+
+    #closeBtn {
+      position: absolute;
+      top: 14px; right: 14px;
+      width: 42px; height: 42px;
+      border-radius: 50%;
+      border: none;
+      background: #fff;
+      color: #880e4f;
+      font-size: 1.3rem;
+      cursor: pointer;
+      box-shadow: 0 3px 10px rgba(0,0,0,.25);
+    }
+
+    .book {
+      --w: min(320px, 44vw);
+      --h: calc(var(--w) * 1.4);
+      position: relative;
+      width: var(--w);
+      height: var(--h);
+      perspective: 1800px;
+      transform: translateY(20px) scale(.85);
+      transition: transform .9s cubic-bezier(.4, .1, .2, 1);
+      cursor: pointer;
+    }
+    #overlay.show .book { transform: translateY(0) scale(1); }
+    #overlay.show .book.open { transform: translateX(calc(var(--w) / 2)) scale(1); }
+
+    /* Página interior derecha */
+    .page-right {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      border-radius: 2px 12px 12px 2px;
+      background:
+        repeating-linear-gradient(transparent 0 25px, rgba(186,104,200,.12) 25px 26px),
+        #fffdf7;
+      box-shadow: 0 10px 28px rgba(0,0,0,.35);
+      padding: 7% 8%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      text-align: left;
+      color: #4a3550;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-style: italic;
+      font-size: clamp(.78rem, calc(var(--w) * .064), 1.05rem);
+      line-height: 1.5;
+    }
+    .page-right::before {          /* sombra del lomo sobre la hoja */
+      content: ""; position: absolute; inset: 0 auto 0 0; width: 18px;
+      background: linear-gradient(90deg, rgba(0,0,0,.14), transparent);
+      border-radius: 2px 0 0 2px;
+    }
+    .page-right .firma {
+      margin-top: 10px;
+      font-size: .8em;
+      color: #d81b60;
+      text-align: right;
+    }
+
+    /* Tapa que gira sobre el lomo */
+    .cover {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      transform-origin: left center;
+      transform-style: preserve-3d;
+      transition: transform 1.1s cubic-bezier(.45, .05, .25, 1);
+    }
+    .book.open .cover { transform: rotateY(-180deg); }
+
+    .face {
+      position: absolute;
+      inset: 0;
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+    }
+    .face.front { box-shadow: 0 10px 28px rgba(0,0,0,.35); border-radius: 6px 14px 14px 6px; }
+    .face.front .cover-art .ico { font-size: calc(var(--w) * .26); }
+    .face.front .cover-art .num { font-size: calc(var(--w) * .1); }
+    .face.front .cover-art .hint-text { font-size: calc(var(--w) * .05); }
+
+    /* Interior de la tapa (hoja izquierda) */
+    .face.back {
+      transform: rotateY(180deg);
+      border-radius: 12px 2px 2px 12px;
+      background: linear-gradient(135deg, #f3e5f5 0%, #fce4ec 100%);
+      border: 2px solid #ce93d8;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: #6a1b9a;
+      overflow: hidden;
+    }
+    .face.back::before {
+      content: ""; position: absolute; inset: 0 0 0 auto; width: 18px;
+      background: linear-gradient(270deg, rgba(0,0,0,.14), transparent);
+    }
+    .face.back .big { font-size: calc(var(--w) * .34); line-height: 1; }
+    .face.back .small {
+      font-size: calc(var(--w) * .07);
+      opacity: .9;
+      text-align: center;
+      line-height: 1.35;
+      padding: 0 14%;
+      font-weight: 600;
+    }
+
+    .hint {
+      margin-top: 28px;
+      color: #fff;
+      font-size: .9rem;
+      opacity: .9;
+      transition: transform .9s cubic-bezier(.4, .1, .2, 1);
+    }
+
+    footer {
+      margin-top: 40px;
+      font-size: 0.9rem;
+      color: #7b1fa2;
+    }
+
+    @media (max-width: 480px) {
+      .grid-container { gap: 18px 10px; }
+      .cover-art .num { font-size: 1.2rem; }
+      .cover-art .hint-text { font-size: .65rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .cover, .book, .mini { transition-duration: .01s; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>✨ ¡Feliz Cumpleaños, amor mío! ✨</h1>
+    <p class="subtitulo">Toca cada tarjeta para abrirla y ver un par de cosas que quería decirte... ✨💫</p>
+  </header>
+
+  <main class="grid-container" id="grid"></main>
+
+  <footer>
+    <p>Es sencillo, pero hecho con todo mi amor 💗</p>
+  </footer>
+
+  <!-- Escenario donde la tarjeta se abre -->
+  <div id="overlay" aria-hidden="true">
+    <button id="closeBtn" aria-label="Cerrar">✕</button>
+    <div class="book" id="book" role="button" tabindex="0" aria-label="Abrir o cerrar tarjeta">
+      <div class="page-right">
+        <p id="msg"></p>
+        <p class="firma">Con amor, M 💗</p>
+      </div>
+      <div class="cover">
+        <div class="face front">
+          <div class="cover-art">
+            <span class="ico" id="bigIco"></span>
+            <span class="num" id="bigNum"></span>
+            <span class="hint-text">Toca para abrir</span>
+            <div class="spine-shade"></div>
+          </div>
+        </div>
+        <div class="face back">
+          <span class="big" id="backIco"></span>
+          <span class="small" id="backFor"></span>
+        </div>
+      </div>
+    </div>
+    <p class="hint" id="hint">Toca la tarjeta para abrirla</p>
+  </div>
+
+  <script>
+    const cards = [
+      { icon: '💌', confetti: null, para: 'Para ti ✨',
+        msg: 'Hoy celebramos tu vida y lo que significa para la mía. Tu cumpleaños no es solo tuyo: también es mío, porque celebrar que existes es celebrar todo lo que me ha traído tenerte cerca.' },
+      { icon: '🌟', confetti: '⭐', para: 'Para el amor de mi vida 💖',
+        msg: 'No hay día en el que no le agradezca a la vida por haber cruzado nuestros caminos. Feliz cumpleaños a la reina de mi corazón.' },
+      { icon: '🌻', confetti: '🌻', para: 'Para mi futura esposa 💍',
+        msg: 'Feliz cumpleaños a la persona que hace que mi vida sea infinitamente más bonita. Gracias por existir y por hacerme tan feliz.' },
+      { icon: '💎', confetti: '💎', para: 'Para mi persona favorita 🥰',
+        msg: 'Hoy celebro tu vida, pero todos los días celebro la suerte que tengo de tenerte a mi lado. Te amo muchísimo, mi amor.' },
+      { icon: '🎈', confetti: '🎈', para: 'Para mi sueño más bonito 🌙',
+        msg: 'No necesito una ocasión especial para recordarte cuánto te amo, pero hoy celebro con más ganas el día en que llegaste al mundo. ¡Feliz cumple!' },
+      { icon: '🎁', confetti: '🎁', para: 'Para mi razón de sonreír 😊',
+        msg: 'Mi lugar favorito en el mundo sigue siendo a tu lado. Que este nuevo año te traiga todo lo lindo que te mereces.' }
+    ];
+
+    const grid = document.getElementById('grid');
+    const overlay = document.getElementById('overlay');
+    const book = document.getElementById('book');
+    const hint = document.getElementById('hint');
+    let current = null;     // índice de la tarjeta abierta en el escenario
+    const seen = new Set(); // tarjetas que ya soltaron confeti
+    let timer = null;
+
+    // Construir las tarjetas cerradas
+    cards.forEach((c, i) => {
+      const b = document.createElement('button');
+      b.className = 'mini';
+      b.setAttribute('aria-label', 'Abrir tarjeta ' + (i + 1));
+      b.innerHTML = `
+        <div class="cover-art">
+          <span class="ico">${c.icon}</span>
+          <span class="num">0${i + 1}</span>
+          <span class="hint-text">Toca para abrir</span>
+          <div class="spine-shade"></div>
+        </div>`;
+      b.addEventListener('click', () => showCard(i, b));
+      grid.appendChild(b);
+    });
+
+    function showCard(i, miniEl) {
+      current = i;
+      const c = cards[i];
+      document.getElementById('bigIco').textContent = c.icon;
+      document.getElementById('bigNum').textContent = '0' + (i + 1);
+      document.getElementById('backIco').textContent = c.icon;
+      document.getElementById('backFor').textContent = c.para;
+      document.getElementById('msg').textContent = c.msg;
+      book.classList.remove('open');
+      hint.textContent = 'Toca la tarjeta para abrirla';
+      overlay.classList.add('show');
+      overlay.setAttribute('aria-hidden', 'false');
+      miniEl.classList.add('opened');
+      clearTimeout(timer);
+    }
+
+    function openBook() {
+      if (current === null || book.classList.contains('open')) return;
+      book.classList.add('open');
+      hint.textContent = 'Toca la tarjeta para cerrarla';
+      if (!seen.has(current)) {
+        seen.add(current);
+        const idx = current;
+        setTimeout(() => fireConfetti(idx), 450);
+      }
+    }
+
+    function closeBook() {
+      book.classList.remove('open');
+      hint.textContent = 'Toca la tarjeta para abrirla';
+    }
+
+    function closeOverlay() {
+      clearTimeout(timer);
+      closeBook();
+      setTimeout(() => {
+        overlay.classList.remove('show');
+        overlay.setAttribute('aria-hidden', 'true');
+        current = null;
+      }, 500);
+    }
+
+    // Canvas propio sin Web Worker (los workers están bloqueados en este entorno)
+    const confettiCanvas = document.createElement('canvas');
+    confettiCanvas.style.cssText =
+      'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:100;';
+    document.body.appendChild(confettiCanvas);
+    const fire = confetti.create(confettiCanvas, { resize: true, useWorker: false });
+
+    function fireConfetti(i) {
+      const c = cards[i];
+      if (!c) return;
+      if (!c.confetti) {
+        fire({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
+      } else {
+        fire({
+          particleCount: i === 1 ? 25 : 20,
+          spread: 70,
+          origin: { y: 0.7 },
+          shapes: [confetti.shapeFromText({ text: c.confetti })],
+          scalar: 2
+        });
+      }
+    }
+
+    book.addEventListener('click', () => {
+      book.classList.contains('open') ? closeBook() : openBook();
+    });
+    book.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); book.click(); }
+    });
+    document.getElementById('closeBtn').addEventListener('click', closeOverlay);
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeOverlay(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeOverlay(); });
+  </script>
+
+</body>
+</html>
